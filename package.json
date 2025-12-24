@@ -1,0 +1,16 @@
+{
+  "name": "meilisearch-docs-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "reindex": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "linkedom": "^0.18.0",
+    "meilisearch": "^0.41.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.0"
+  }
+}
