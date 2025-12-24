@@ -11,7 +11,8 @@
  *   INDEX_NAME           - Override index name from config (optional, only for single config)
  */
 
-import { loadConfig, loadEnv, shouldSkipUrl, type Config } from "./config";
+import { loadConfig, loadEnv, shouldSkipUrl } from "./config";
+import type { Config } from "./types";
 import { parseMultipleSitemaps } from "./sitemap";
 import { scrapePages } from "./scraper";
 import { createClient, reindex, type MeilisearchClient } from "./meilisearch";

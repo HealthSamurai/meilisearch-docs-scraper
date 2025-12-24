@@ -4,13 +4,16 @@
   "type": "module",
   "scripts": {
     "start": "bun run src/index.ts",
-    "reindex": "bun run src/index.ts"
+    "reindex": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "bun build src/index.ts --outdir dist"
   },
   "dependencies": {
     "linkedom": "^0.18.0",
     "meilisearch": "^0.41.0"
   },
   "devDependencies": {
-    "@types/bun": "^1.1.0"
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.9.3"
   }
 }
