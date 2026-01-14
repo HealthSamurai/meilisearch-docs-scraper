@@ -98,6 +98,14 @@ export async function scrapePage(
   const documents: SearchDocument[] = [];
   const selectors = config.selectors;
 
+  // Extract tags from #doc-tags div if present
+  const tagsContainer = document.getElementById("doc-tags");
+  const pageTags = tagsContainer
+    ? Array.from(tagsContainer.querySelectorAll("span"))
+        .map(span => span.textContent?.trim())
+        .filter((t): t is string => Boolean(t))
+    : (config.tags || []);
+
   // Extract global hierarchy levels (lvl0, lvl1 if global)
   const lvl0Config = getSelectorConfig(selectors.lvl0);
   const lvl1Config = getSelectorConfig(selectors.lvl1);
@@ -130,6 +138,7 @@ export async function scrapePage(
         hierarchy_lvl4: "",
         hierarchy_lvl5: "",
         hierarchy_lvl6: "",
+        tags: pageTags,
       });
     }
     return documents;
@@ -213,6 +222,7 @@ export async function scrapePage(
           hierarchy_lvl4: currentHierarchy.lvl4,
           hierarchy_lvl5: currentHierarchy.lvl5,
           hierarchy_lvl6: currentHierarchy.lvl6,
+          tags: pageTags,
         });
       }
     }

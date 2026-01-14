@@ -44,6 +44,7 @@ export interface Config {
   stop_urls: string[];
   selectors: Selectors;
   custom_settings: MeilisearchSettings;
+  tags?: string[];  // Global tags for all documents
 }
 
 /**
@@ -67,6 +68,7 @@ export interface SearchDocument {
   hierarchy_lvl4: string;
   hierarchy_lvl5: string;
   hierarchy_lvl6: string;
+  tags?: string[];  // Tags for categorization/filtering
 }
 
 /**
