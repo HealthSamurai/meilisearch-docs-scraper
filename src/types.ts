@@ -21,6 +21,7 @@ export interface Selectors {
   lvl5: Selector;
   lvl6: Selector;
   text: Selector;
+  tags?: Selector;  // Optional selector for tags
 }
 
 /**

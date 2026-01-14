@@ -98,13 +98,19 @@ export async function scrapePage(
   const documents: SearchDocument[] = [];
   const selectors = config.selectors;
 
-  // Extract tags from #doc-tags div if present
-  const tagsContainer = document.getElementById("doc-tags");
-  const pageTags = tagsContainer
-    ? Array.from(tagsContainer.querySelectorAll("span"))
-        .map(span => span.textContent?.trim())
-        .filter((t): t is string => Boolean(t))
-    : (config.tags || []);
+  // Extract tags using selector from config or fallback to global tags
+  let pageTags: string[] = [];
+  if (selectors.tags) {
+    const tagsSelector = getSelectorString(selectors.tags);
+    const tagElements = queryAll(document, tagsSelector);
+    pageTags = tagElements
+      .map(el => getTextContent(el))
+      .filter(t => t.length > 0);
+  }
+  // Fallback to global config tags if no tags found
+  if (pageTags.length === 0 && config.tags) {
+    pageTags = config.tags;
+  }
 
   // Extract global hierarchy levels (lvl0, lvl1 if global)
   const lvl0Config = getSelectorConfig(selectors.lvl0);
