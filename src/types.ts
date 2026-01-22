@@ -33,6 +33,7 @@ export interface MeilisearchSettings {
   searchableAttributes?: string[];
   rankingRules?: string[];
   distinctAttribute?: string;
+  nonSeparatorTokens?: string[];
 }
 
 /**

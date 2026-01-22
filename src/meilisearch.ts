@@ -67,6 +67,7 @@ async function createIndex(
     searchableAttributes: settings.searchableAttributes,
     rankingRules: settings.rankingRules,
     distinctAttribute: settings.distinctAttribute,
+    nonSeparatorTokens: settings.nonSeparatorTokens,
   });
   await client.waitForTask(settingsTask.taskUid);
   console.log(`Applied settings to index: ${indexUid}`);
