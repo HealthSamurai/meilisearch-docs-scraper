@@ -39,7 +39,7 @@ async function indexExists(client: MeiliSearch, indexUid: string): Promise<boole
 async function deleteIndex(client: MeiliSearch, indexUid: string): Promise<void> {
   try {
     const task = await client.deleteIndex(indexUid);
-    await client.waitForTask(task.taskUid);
+    await client.tasks.waitForTask(task.taskUid);
     console.log(`Deleted index: ${indexUid}`);
   } catch {
     // Index doesn't exist, ignore
@@ -56,7 +56,7 @@ async function createIndex(
 ): Promise<void> {
   // Create index with primary key
   const createTask = await client.createIndex(indexUid, { primaryKey: "objectID" });
-  await client.waitForTask(createTask.taskUid);
+  await client.tasks.waitForTask(createTask.taskUid);
   console.log(`Created index: ${indexUid}`);
 
   // Apply settings
@@ -69,7 +69,7 @@ async function createIndex(
     distinctAttribute: settings.distinctAttribute,
     nonSeparatorTokens: settings.nonSeparatorTokens,
   });
-  await client.waitForTask(settingsTask.taskUid);
+  await client.tasks.waitForTask(settingsTask.taskUid);
   console.log(`Applied settings to index: ${indexUid}`);
 }
 
@@ -87,7 +87,7 @@ async function addDocuments(
   for (let i = 0; i < documents.length; i += BATCH_SIZE) {
     const batch = documents.slice(i, i + BATCH_SIZE);
     const task = await index.addDocuments(batch);
-    await client.waitForTask(task.taskUid);
+    await client.tasks.waitForTask(task.taskUid);
     console.log(`Indexed ${Math.min(i + BATCH_SIZE, total)}/${total} documents`);
   }
 }
@@ -100,8 +100,8 @@ async function swapIndexes(
   indexA: string,
   indexB: string
 ): Promise<void> {
-  const task = await client.swapIndexes([{ indexes: [indexA, indexB] }]);
-  await client.waitForTask(task.taskUid);
+  const task = await client.swapIndexes([{ indexes: [indexA, indexB], rename: false }]);
+  await client.tasks.waitForTask(task.taskUid);
   console.log(`Swapped indexes: ${indexA} <-> ${indexB}`);
 }
 
@@ -139,7 +139,7 @@ export async function reindex(
     // Create empty main index first
     console.log(`Creating main index: ${indexName}`);
     const createTask = await client.createIndex(indexName, { primaryKey: "objectID" });
-    await client.waitForTask(createTask.taskUid);
+    await client.tasks.waitForTask(createTask.taskUid);
   }
 
   // 5. Swap indexes
