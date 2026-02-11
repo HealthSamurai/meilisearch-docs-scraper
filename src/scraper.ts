@@ -1,6 +1,6 @@
 import { parseHTML } from "linkedom";
-import type { Config, DocumentType, SearchDocument, Selector, SelectorConfig } from "./types";
-import { getSelectorConfig, getSelectorString } from "./config";
+import type { Config, DocumentType, SearchDocument, Selector, Selectors } from "./types";
+import { getSelectorConfig, getSelectorString, getSelectorsForKey, matchStartUrl } from "./config";
 
 // Bot User-Agent so analytics (PostHog, GA) can filter us out
 const USER_AGENT = "MeilisearchDocsScraper/1.0 (https://github.com/HealthSamurai/meilisearch-docs-scraper)";
@@ -21,10 +21,19 @@ function generateObjectId(url: string, anchor?: string): string {
 }
 
 /**
- * Extract text content from an element, cleaning whitespace
+ * Extract text content from an element, cleaning whitespace.
+ * For <tr> elements, concatenate <td> text with spaces between cells.
  */
-function getTextContent(element: Element | null): string {
-  if (!element) return "";
+function getTextContent(element: Element): string {
+  if (element.tagName === "TR") {
+    const cells = Array.from(element.querySelectorAll("td, th"));
+    if (cells.length > 0) {
+      return cells
+        .map(cell => (cell.textContent || "").replace(/\s+/g, " ").trim())
+        .filter(t => t.length > 0)
+        .join(" ");
+    }
+  }
   return (element.textContent || "").replace(/\s+/g, " ").trim();
 }
 
@@ -56,25 +65,46 @@ function queryAll(document: Document, selector: string): Element[] {
 function extractLevelValue(
   document: Document,
   selector: Selector,
-  currentElement?: Element
 ): string {
   const config = getSelectorConfig(selector);
   const selectorString = config.selector;
 
-  let element: Element | null = null;
-
-  if (config.global) {
-    // Global selector - search from document root
-    element = queryOne(document, selectorString);
-  } else if (currentElement) {
-    // Find previous sibling heading or search in ancestors
-    element = queryOne(document, selectorString);
-  } else {
-    element = queryOne(document, selectorString);
-  }
-
-  const text = getTextContent(element);
+  const element = queryOne(document, selectorString);
+  const text = element ? (element.textContent || "").replace(/\s+/g, " ").trim() : "";
   return text || config.default_value || "";
+}
+
+/**
+ * Compute level weight for item_priority (higher = more important).
+ * A record under only h1 (lvl1) is more important than one nested under h3.
+ */
+function computeLevelWeight(hierarchy: Record<string, string>): number {
+  // Find the deepest non-empty level
+  for (let i = 6; i >= 0; i--) {
+    if (hierarchy[`lvl${i}`]) {
+      // lvl0 only = 90, lvl1 = 80, ..., lvl6 = 30
+      return (7 - i) * 10 + 20;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Extract <meta name="docsearch:product"> from <head>
+ */
+function extractMetaProduct(document: Document): string {
+  const meta = queryOne(document, 'meta[name="docsearch:product"]');
+  return meta?.getAttribute("content") || "";
+}
+
+/**
+ * Extract all <meta name="docsearch:tag"> from <head>
+ */
+function extractMetaTags(document: Document): string[] {
+  const metas = queryAll(document, 'meta[name="docsearch:tag"]');
+  return metas
+    .map(m => m.getAttribute("content") || "")
+    .filter(t => t.length > 0);
 }
 
 /**
@@ -82,7 +112,9 @@ function extractLevelValue(
  */
 export async function scrapePage(
   url: string,
-  config: Config
+  config: Config,
+  selectors: Selectors,
+  pageRank: number,
 ): Promise<SearchDocument[]> {
   const response = await fetch(url, {
     headers: { "User-Agent": USER_AGENT }
@@ -96,20 +128,33 @@ export async function scrapePage(
   const { document } = parseHTML(html);
 
   const documents: SearchDocument[] = [];
-  const selectors = config.selectors;
+  const urlWithoutAnchor = url.split("#")[0];
 
-  // Extract tags using selector from config or fallback to global tags
-  let pageTags: string[] = [];
+  // Extract product from <meta name="docsearch:product">
+  const product = extractMetaProduct(document);
+
+  // Extract tags: <meta name="docsearch:tag"> + CSS selector + global fallback
+  let pageTags: string[] = extractMetaTags(document);
   if (selectors.tags) {
     const tagsSelector = getSelectorString(selectors.tags);
     const tagElements = queryAll(document, tagsSelector);
-    pageTags = tagElements
-      .map(el => getTextContent(el))
+    const cssTags = tagElements
+      .map(el => (el.textContent || "").replace(/\s+/g, " ").trim())
       .filter(t => t.length > 0);
+    pageTags = [...new Set([...pageTags, ...cssTags])];
   }
-  // Fallback to global config tags if no tags found
   if (pageTags.length === 0 && config.tags) {
     pageTags = config.tags;
+  }
+
+  // Remove excluded elements from DOM before scraping
+  if (config.selectors_exclude) {
+    for (const excludeSelector of config.selectors_exclude) {
+      const excludeElements = queryAll(document, excludeSelector);
+      for (const el of excludeElements) {
+        el.remove();
+      }
+    }
   }
 
   // Extract global hierarchy levels (lvl0, lvl1 if global)
@@ -135,6 +180,7 @@ export async function scrapePage(
       documents.push({
         objectID: generateObjectId(url),
         url,
+        url_without_anchor: urlWithoutAnchor,
         content: "",
         type: "lvl1",
         hierarchy_lvl0: globalLvl0 || lvl0Config.default_value || "",
@@ -144,14 +190,16 @@ export async function scrapePage(
         hierarchy_lvl4: "",
         hierarchy_lvl5: "",
         hierarchy_lvl6: "",
+        product,
         tags: pageTags,
+        item_priority: pageRank * 1_000_000_000 + 90 * 1000,
       });
     }
     return documents;
   }
 
   // Track current hierarchy state
-  let currentHierarchy = {
+  const currentHierarchy: Record<string, string> = {
     lvl0: globalLvl0 || lvl0Config.default_value || "",
     lvl1: globalLvl1 || "",
     lvl2: "",
@@ -172,7 +220,7 @@ export async function scrapePage(
     { level: 4, selector: getSelectorString(selectors.lvl4) },
     { level: 5, selector: getSelectorString(selectors.lvl5) },
     { level: 6, selector: getSelectorString(selectors.lvl6) },
-  ];
+  ].filter(h => h.selector); // skip empty selectors
 
   // Get all content elements (headings + text) in document order
   const allSelectors = headingSelectors
@@ -182,6 +230,8 @@ export async function scrapePage(
     .join(", ");
 
   const allElements = queryAll(document, allSelectors);
+  const totalElements = allElements.length;
+  let contentIndex = 0;
 
   for (const element of allElements) {
     // Check if this is a heading
@@ -189,21 +239,17 @@ export async function scrapePage(
     for (const { level, selector } of headingSelectors) {
       if (element.matches(selector)) {
         isHeading = true;
-        const text = getTextContent(element);
-        const key = `lvl${level}` as keyof typeof currentHierarchy;
+        const text = (element.textContent || "").replace(/\s+/g, " ").trim();
+        const key = `lvl${level}`;
         currentHierarchy[key] = text;
 
         // Clear lower levels
         for (let i = level + 1; i <= 6; i++) {
-          const lowerKey = `lvl${i}` as keyof typeof currentHierarchy;
-          currentHierarchy[lowerKey] = "";
+          currentHierarchy[`lvl${i}`] = "";
         }
 
         // Save anchor from heading for text content that follows
-        const anchor = element.id || undefined;
-        lastHeadingAnchor = anchor;
-        // Don't create document for heading itself - only track hierarchy
-        // Documents are created only for text content blocks
+        lastHeadingAnchor = element.id || undefined;
         break;
       }
     }
@@ -212,12 +258,15 @@ export async function scrapePage(
     if (!isHeading && element.matches(textSelector)) {
       const content = getTextContent(element);
       if (content && content.length > 10) {
-        // Use anchor from last heading in current hierarchy
         const anchor = lastHeadingAnchor;
+        const docUrl = anchor ? `${urlWithoutAnchor}#${anchor}` : urlWithoutAnchor;
+        const levelWeight = computeLevelWeight(currentHierarchy);
+        const positionDesc = totalElements - contentIndex;
 
         documents.push({
           objectID: generateObjectId(url, anchor) + "-" + documents.length,
-          url,
+          url: docUrl,
+          url_without_anchor: urlWithoutAnchor,
           anchor,
           content,
           type: "content",
@@ -228,8 +277,11 @@ export async function scrapePage(
           hierarchy_lvl4: currentHierarchy.lvl4,
           hierarchy_lvl5: currentHierarchy.lvl5,
           hierarchy_lvl6: currentHierarchy.lvl6,
+          product,
           tags: pageTags,
+          item_priority: pageRank * 1_000_000_000 + levelWeight * 1000 + positionDesc,
         });
+        contentIndex++;
       }
     }
   }
@@ -255,7 +307,11 @@ export async function scrapePages(
     const results = await Promise.all(
       batch.map(async (url) => {
         try {
-          const docs = await scrapePage(url, config);
+          // Match URL to get page_rank and selectors_key
+          const { page_rank, selectors_key } = matchStartUrl(url, config.start_urls);
+          const selectors = getSelectorsForKey(config, selectors_key);
+
+          const docs = await scrapePage(url, config, selectors, page_rank);
           processed++;
           console.log(`[${processed}/${total}] ${url} -> ${docs.length} docs`);
           return docs;

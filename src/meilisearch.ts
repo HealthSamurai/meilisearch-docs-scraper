@@ -1,7 +1,7 @@
 import { MeiliSearch } from "meilisearch";
 import type { MeilisearchSettings, SearchDocument } from "./types";
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 1000;
 
 export interface MeilisearchClient {
   client: MeiliSearch;
@@ -61,14 +61,17 @@ async function createIndex(
 
   // Apply settings
   const index = client.index(indexUid);
-  const settingsTask = await index.updateSettings({
-    filterableAttributes: settings.filterableAttributes,
-    displayedAttributes: settings.displayedAttributes,
-    searchableAttributes: settings.searchableAttributes,
-    rankingRules: settings.rankingRules,
-    distinctAttribute: settings.distinctAttribute,
-    nonSeparatorTokens: settings.nonSeparatorTokens,
-  });
+  const updatePayload: Record<string, unknown> = {};
+  if (settings.filterableAttributes) updatePayload.filterableAttributes = settings.filterableAttributes;
+  if (settings.displayedAttributes) updatePayload.displayedAttributes = settings.displayedAttributes;
+  if (settings.searchableAttributes) updatePayload.searchableAttributes = settings.searchableAttributes;
+  if (settings.rankingRules) updatePayload.rankingRules = settings.rankingRules;
+  if (settings.sortableAttributes) updatePayload.sortableAttributes = settings.sortableAttributes;
+  if (settings.distinctAttribute) updatePayload.distinctAttribute = settings.distinctAttribute;
+  if (settings.nonSeparatorTokens) updatePayload.nonSeparatorTokens = settings.nonSeparatorTokens;
+  if (settings.typoTolerance) updatePayload.typoTolerance = settings.typoTolerance;
+
+  const settingsTask = await index.updateSettings(updatePayload);
   await client.tasks.waitForTask(settingsTask.taskUid);
   console.log(`Applied settings to index: ${indexUid}`);
 }

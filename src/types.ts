@@ -25,6 +25,17 @@ export interface Selectors {
 }
 
 /**
+ * start_urls entry — string (backward compat) or object with page_rank + selectors_key
+ */
+export interface StartUrlConfig {
+  url: string;           // regex pattern matched against page URL
+  page_rank: number;     // higher = more important (docs=10, blog=5, landing=3)
+  selectors_key: string; // key into selectors map
+}
+
+export type StartUrl = string | StartUrlConfig;
+
+/**
  * Meilisearch index settings
  */
 export interface MeilisearchSettings {
@@ -32,19 +43,29 @@ export interface MeilisearchSettings {
   displayedAttributes?: string[];
   searchableAttributes?: string[];
   rankingRules?: string[];
+  sortableAttributes?: string[];
   distinctAttribute?: string;
   nonSeparatorTokens?: string[];
+  typoTolerance?: {
+    enabled?: boolean;
+    minWordSizeForTypos?: { oneTypo?: number; twoTypos?: number };
+  };
 }
 
 /**
  * Main configuration file format (compatible with docs-scraper)
+ *
+ * Selectors can be:
+ * - A single Selectors object (old format, backward compatible)
+ * - A map of { key: Selectors } for selectors_key routing
  */
 export interface Config {
   index_uid: string;
-  start_urls: string[];
+  start_urls: StartUrl[];
   sitemap_urls: string[];
   stop_urls: string[];
-  selectors: Selectors;
+  selectors: Selectors | Record<string, Selectors>;
+  selectors_exclude?: string[];
   custom_settings: MeilisearchSettings;
   tags?: string[];  // Global tags for all documents
 }
@@ -60,6 +81,7 @@ export type DocumentType = "content" | "lvl0" | "lvl1" | "lvl2" | "lvl3" | "lvl4
 export interface SearchDocument {
   objectID: string;
   url: string;
+  url_without_anchor: string;
   anchor?: string;
   content: string;
   type: DocumentType;
@@ -70,7 +92,9 @@ export interface SearchDocument {
   hierarchy_lvl4: string;
   hierarchy_lvl5: string;
   hierarchy_lvl6: string;
-  tags?: string[];  // Tags for categorization/filtering
+  product: string;
+  tags: string[];
+  item_priority: number;
 }
 
 /**

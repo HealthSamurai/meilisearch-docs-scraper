@@ -1,4 +1,4 @@
-import type { Config, Env, Selector, SelectorConfig } from "./types";
+import type { Config, Env, Selector, SelectorConfig, Selectors, StartUrl, StartUrlConfig } from "./types";
 
 /**
  * Load and parse config file
@@ -72,4 +72,55 @@ export function getSelectorConfig(selector: Selector): SelectorConfig {
  */
 export function shouldSkipUrl(url: string, stopUrls: string[]): boolean {
   return stopUrls.some(stopUrl => url.startsWith(stopUrl));
+}
+
+/**
+ * Check if selectors config is a map (multiple selector sets) or a single Selectors object.
+ * Old format has `lvl0` key directly; new format has named keys like "docs", "blog", "default".
+ */
+function isSelectorsMap(selectors: Selectors | Record<string, Selectors>): selectors is Record<string, Selectors> {
+  return !("lvl0" in selectors);
+}
+
+/**
+ * Get the Selectors for a given selectors_key.
+ * If config uses old single-selectors format, always returns that.
+ */
+export function getSelectorsForKey(config: Config, key?: string): Selectors {
+  if (!isSelectorsMap(config.selectors)) {
+    return config.selectors;
+  }
+  if (key && key in config.selectors) {
+    return config.selectors[key];
+  }
+  // Fallback: try "default", then first key
+  if ("default" in config.selectors) {
+    return config.selectors["default"];
+  }
+  const firstKey = Object.keys(config.selectors)[0];
+  return config.selectors[firstKey];
+}
+
+/**
+ * Match a URL against start_urls to get page_rank and selectors_key.
+ * Returns defaults if no match or start_urls uses old string format.
+ */
+export function matchStartUrl(url: string, startUrls: StartUrl[]): { page_rank: number; selectors_key?: string } {
+  for (const entry of startUrls) {
+    if (typeof entry === "string") continue;
+
+    const config = entry as StartUrlConfig;
+    try {
+      const regex = new RegExp(config.url);
+      if (regex.test(url)) {
+        return { page_rank: config.page_rank, selectors_key: config.selectors_key };
+      }
+    } catch {
+      // Invalid regex, try simple prefix match
+      if (url.includes(config.url)) {
+        return { page_rank: config.page_rank, selectors_key: config.selectors_key };
+      }
+    }
+  }
+  return { page_rank: 1 };
 }

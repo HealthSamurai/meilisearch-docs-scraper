@@ -51,7 +51,7 @@ async function processConfig(
     if (config.sitemap_urls?.length) {
       urls = await parseMultipleSitemaps(config.sitemap_urls);
     } else if (config.start_urls?.length) {
-      urls = config.start_urls;
+      urls = config.start_urls.map(u => typeof u === "string" ? u : u.url);
     }
 
     // Filter out stop URLs
