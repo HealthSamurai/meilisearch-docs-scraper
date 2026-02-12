@@ -21,7 +21,8 @@ export interface Selectors {
   lvl5: Selector;
   lvl6: Selector;
   text: Selector;
-  tags?: Selector;  // Optional selector for tags
+  tags?: Selector;        // Optional selector for tags
+  breadcrumb?: Selector;  // Optional selector for breadcrumb navigation
 }
 
 /**
@@ -93,6 +94,7 @@ export interface SearchDocument {
   hierarchy_lvl5: string;
   hierarchy_lvl6: string;
   product: string;
+  breadcrumb: string;
   tags: string[];
   item_priority: number;
 }

@@ -133,6 +133,17 @@ export async function scrapePage(
   // Extract product from <meta name="docsearch:product">
   const product = extractMetaProduct(document);
 
+  // Extract breadcrumb from CSS selector (e.g. nav[aria-label="Breadcrumb"])
+  let breadcrumb = "";
+  if (selectors.breadcrumb) {
+    const breadcrumbSelector = getSelectorString(selectors.breadcrumb);
+    const breadcrumbEl = queryOne(document, breadcrumbSelector);
+    if (breadcrumbEl) {
+      // Text content includes separator chars (e.g. "/"), normalize whitespace
+      breadcrumb = (breadcrumbEl.textContent || "").replace(/\s+/g, " ").trim();
+    }
+  }
+
   // Extract tags: <meta name="docsearch:tag"> + CSS selector + global fallback
   let pageTags: string[] = extractMetaTags(document);
   if (selectors.tags) {
@@ -191,6 +202,7 @@ export async function scrapePage(
         hierarchy_lvl5: "",
         hierarchy_lvl6: "",
         product,
+        breadcrumb,
         tags: pageTags,
         item_priority: pageRank * 1_000_000_000 + 90 * 1000,
       });
@@ -278,6 +290,7 @@ export async function scrapePage(
           hierarchy_lvl5: currentHierarchy.lvl5,
           hierarchy_lvl6: currentHierarchy.lvl6,
           product,
+          breadcrumb,
           tags: pageTags,
           item_priority: pageRank * 1_000_000_000 + levelWeight * 1000 + positionDesc,
         });
