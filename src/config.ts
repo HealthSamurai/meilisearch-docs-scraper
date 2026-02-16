@@ -1,5 +1,20 @@
 import type { Config, Env, Selector, SelectorConfig, Selectors, StartUrl, StartUrlConfig } from "./types";
 
+const USER_AGENT = "MeilisearchDocsScraper/1.0 (https://github.com/HealthSamurai/meilisearch-docs-scraper)";
+
+/**
+ * Build headers for fetching pages, including basic auth if configured
+ */
+export function getFetchHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "User-Agent": USER_AGENT };
+  const user = process.env.BASIC_AUTH_USERNAME;
+  const pass = process.env.BASIC_AUTH_PASSWORD;
+  if (user && pass) {
+    headers["Authorization"] = `Basic ${Buffer.from(`${user}:${pass}`).toString("base64")}`;
+  }
+  return headers;
+}
+
 /**
  * Load and parse config file
  */

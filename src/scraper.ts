@@ -1,9 +1,6 @@
 import { parseHTML } from "linkedom";
 import type { Config, DocumentType, SearchDocument, Selector, Selectors } from "./types";
-import { getSelectorConfig, getSelectorString, getSelectorsForKey, matchStartUrl } from "./config";
-
-// Bot User-Agent so analytics (PostHog, GA) can filter us out
-const USER_AGENT = "MeilisearchDocsScraper/1.0 (https://github.com/HealthSamurai/meilisearch-docs-scraper)";
+import { getSelectorConfig, getSelectorString, getSelectorsForKey, matchStartUrl, getFetchHeaders } from "./config";
 
 /**
  * Generate unique objectID for a document
@@ -117,7 +114,7 @@ export async function scrapePage(
   pageRank: number,
 ): Promise<SearchDocument[]> {
   const response = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT }
+    headers: getFetchHeaders()
   });
   if (!response.ok) {
     console.error(`Failed to fetch ${url}: ${response.status}`);

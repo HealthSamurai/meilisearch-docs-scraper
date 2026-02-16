@@ -2,8 +2,7 @@
  * Sitemap parser - extracts URLs from sitemap.xml
  */
 
-// Bot User-Agent so analytics can filter us out
-const USER_AGENT = "MeilisearchDocsScraper/1.0 (https://github.com/HealthSamurai/meilisearch-docs-scraper)";
+import { getFetchHeaders } from "./config";
 
 interface SitemapUrl {
   loc: string;
@@ -18,7 +17,7 @@ export async function parseSitemap(sitemapUrl: string): Promise<string[]> {
   console.log(`Fetching sitemap: ${sitemapUrl}`);
 
   const response = await fetch(sitemapUrl, {
-    headers: { "User-Agent": USER_AGENT }
+    headers: getFetchHeaders()
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch sitemap: ${response.status} ${response.statusText}`);
