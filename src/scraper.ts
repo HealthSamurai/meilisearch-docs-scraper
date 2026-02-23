@@ -258,7 +258,8 @@ export async function scrapePage(
         }
 
         // Save anchor from heading for text content that follows
-        lastHeadingAnchor = element.id || undefined;
+        // lvl1 (h1) is the page itself, not a section — don't use its anchor
+        lastHeadingAnchor = level >= 2 ? (element.id || undefined) : undefined;
         break;
       }
     }
