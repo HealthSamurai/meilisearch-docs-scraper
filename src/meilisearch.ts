@@ -16,6 +16,7 @@ export function createClient(hostUrl: string, apiKey: string): MeilisearchClient
   const client = new MeiliSearch({
     host: hostUrl,
     apiKey: apiKey,
+    defaultWaitOptions: { timeout: 120_000 },
   });
 
   return { client, hostUrl, apiKey };
